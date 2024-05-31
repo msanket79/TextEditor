@@ -1,0 +1,43 @@
+There are many mathematical and logical operations that come across naturally as variadic functions. For instance, the summing of numbers or the concatenation of strings or other sequences are operations that can be thought of as applicable to any number of operands (even though formally in these cases the associative property is applied).
+
+Another operation that has been implemented as a variadic function in many languages is output formatting. The C function printf and the Common Lisp function format are two such examples. Both take one argument that specifies the formatting of the output, and any number of arguments that provide the values to be formatted.
+
+Variadic functions can expose type-safety problems in some languages. For instance, C's printf, if used incautiously, can give rise to a class of security holes known as format string attacks. The attack is possible because the language support for variadic functions is not type-safe: it permits the function to attempt to pop more arguments off the stack than were placed there, corrupting the stack and leading to unexpected behavior. As a consequence of this, the CERT Coordination Center considers variadic functions in C to be a high-severity security risk.[2]
+
+In functional programming languages, variadics can be considered complementary to the apply function, which takes a function and a list/sequence/array as arguments, and calls the function with the arguments supplied in that list, thus passing a variable number of arguments to the function.[citation needed] In the functional language Haskell, variadic functions can be implemented by returning a value of a type class T; if instances of T are a final return value r and a function (T t) => x -> t, this allows for any number of additional arguments x.[further explanation needed]
+
+A related subject in term rewriting research is called hedges, or hedge variables.[3] Unlike variadics, which are functions with arguments, hedges are sequences of arguments themselves. They also can have constraints ('take no more than 4 arguments', for example) to the point where they are not variable-length (such as 'take exactly 4 arguments') - thus calling them variadics can be misleading. However they are referring to the same phenomenon, and sometimes the phrasing is mixed, resulting in names such as variadic variable (synonymous to hedge). Note the double meaning of the word variable and the difference between arguments and variables in functional programming and term rewriting. For example, a term (function) can have three variables, one of them a hedge, thus allowing the term to take three or more arguments (or two or more if the hedge is allowed to be empty).
+
+Examples
+In C
+To portably implement variadic functions in the C language, the standard stdarg.h header file is used. The older varargs.h header has been deprecated in favor of stdarg.h. In C++, the header file cstdarg is used.[4]
+
+#include <stdarg.h>
+#include <stdio.h>
+
+double average(int count, ...) {
+    va_list ap;
+    int j;
+    double sum = 0;
+
+    va_start(ap, count); /* Before C23: Requires the last fixed parameter (to get the address) */
+    for (j = 0; j < count; j++) {
+        sum += va_arg(ap, int); /* Increments ap to the next argument. */
+    }
+    va_end(ap);
+
+    return sum / count;
+}
+
+int main(int argc, char const *argv[]) {
+    printf("%f\n", average(3, 1, 2, 3));
+    return 0;
+}
+This will compute the average of an arbitrary number of arguments. Note that the function does not know the number of arguments or their types. The above function expects that the types will be int, and that the number of arguments is passed in the first argument (this is a frequent usage but by no means enforced by the language or compiler). In some other cases, for example printf, the number and types of arguments are figured out from a format string. In both cases, this depends on the programmer to supply the correct information. (Alternatively, a sentinel value like NULL may be used to indicate the number.) If fewer arguments are passed in than the function believes, or the types of arguments are incorrect, this could cause it to read into invalid areas of memory and can lead to vulnerabilities like the format string attack.
+
+stdarg.h declares a type, va_list, and defines four macros: va_start, va_arg, va_copy, and va_end. Each invocation of va_start and va_copy must be matched by a corresponding invocation of va_end. When working with variable arguments, a function normally declares a variable of type va_list (ap in the example) that will be manipulated by the macros.
+
+va_start takes two arguments, a va_list object and a reference to the function's last parameter (the one before the ellipsis; the macro uses this to get its bearings). In C23, the second argument will no longer be required and variadic functions will no longer need a named parameter before the ellipsis.[note 1][6] It initialises the va_list object for use by va_arg or va_copy. The compiler will normally issue a warning if the reference is incorrect (e.g. a reference to a different parameter than the last one, or a reference to a wholly different object), but will not prevent compilation from completing normally.
+va_arg takes two arguments, a va_list object (previously initialised) and a type descriptor. It expands to the next variable argument, and has the specified type. Successive invocations of va_arg allow processing each of the variable arguments in turn. Unspecified behavior occurs if the type is incorrect or there is no next variable argument.
+va_end takes one argument, a va_list object. It serves to clean up. If one wanted to, for instance, scan the variable arguments more than once, the programmer would re-initialise your va_list object by invoking va_end and then va_start again on it.
+va_copy takes two arguments, both of them va_list objects. It clones the second (which must have been initialised) into the first. Going back to the "scan the variable arguments more than once" example, this could be achieved by invoking va_start on a first va_list, then using va_copy to clone it into a second va_list. After scanning the variable arguments a first time with va_arg and the first va_list (disposing of it with va_end), the programmer could scan the variable arguments a second time with va_arg and the second va_list. va_end needs to also be called on the cloned va_list before the containing function returns.
